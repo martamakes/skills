@@ -173,6 +173,31 @@ HEADER
     return $html;
 }
 
+sub prompt_subtitle_language {
+    my ($in_fh) = @_;
+    $in_fh //= \*STDIN;
+    print STDERR "Preferred subtitle language (e.g. en, es) [en]: ";
+    my $answer = <$in_fh>;
+    chomp $answer if defined $answer;
+    $answer = 'en' unless defined $answer && length $answer;
+    return $answer;
+}
+
+sub build_ytdlp_cmd {
+    my ($url, $lang) = @_;
+    return (
+        'yt-dlp',
+        '--cookies-from-browser', 'chrome',
+        '--sleep-requests', '1',
+        '-f', 'bv*[height<=720]+ba/b[height<=720]',
+        '--write-auto-subs', '--write-subs',
+        '--sub-lang', $lang,
+        '--print', 'filename',
+        '--no-simulate',
+        $url,
+    );
+}
+
 sub run {
 }
 
