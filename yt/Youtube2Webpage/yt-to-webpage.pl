@@ -130,6 +130,49 @@ sub select_moment_texts {
     return @selected;
 }
 
+sub seconds_to_filename {
+    my ($seconds) = @_;
+    my $h = int($seconds / 3600);
+    my $m = int(($seconds % 3600) / 60);
+    my $s = $seconds % 60;
+    return sprintf("%02d-%02d-%02d", $h, $m, $s);
+}
+
+sub escape_html {
+    my ($text) = @_;
+    $text =~ s/&/&amp;/g;
+    $text =~ s/</&lt;/g;
+    $text =~ s/>/&gt;/g;
+    return $text;
+}
+
+sub generate_html {
+    my ($selected, $url) = @_;
+    my $html = <<"HEADER";
+<html>
+<head>
+ <link rel="stylesheet" type="text/css" href="styles.css" />
+</head>
+<body>
+
+<h1>Youtube transcript</h1>
+Source: <a href="$url" target="_blank">$url</a>
+
+<ul>
+HEADER
+    foreach my $m (@$selected) {
+        my $seconds = $m->{timestamp_seconds};
+        my $ts_filename = seconds_to_filename($seconds);
+        my $escaped_text = escape_html($m->{text});
+        $html .= qq{<li>
+	<div class="grab"><img src="images/$ts_filename.jpg" /></div><div class="subtitle"><span id="$seconds">$escaped_text</span>
+<a href="${url}&t=${seconds}" target="blank" class="videolink">#</a>
+	</div></li>\n};
+    }
+    $html .= "\n</ul>\n</body>\n</html>";
+    return $html;
+}
+
 sub run {
 }
 
