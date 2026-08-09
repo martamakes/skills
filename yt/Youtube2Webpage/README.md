@@ -26,6 +26,20 @@ If the video has no subtitles at all (neither manual nor auto-generated), the sc
 
 Video quality is capped at 720p — plenty for legible screenshots while keeping downloads reasonably fast.
 
+## Testing
+
+The pure logic (VTT parsing, Claude prompt/response handling, moment matching,
+HTML generation, and the error-checking around each external tool call) has
+a `Test::More` suite in `t/`. Run it with:
+
+```prove -l t/```
+
+This does not call any real external tool (yt-dlp/whisper/ffmpeg/claude) — it
+uses fixtures and fake executables. To validate the full pipeline end-to-end,
+run the script itself against a short video, e.g. the one in the `Makefile`:
+
+```make example```
+
 ## Output
 
 Running the script create a repository according to the following structure:
