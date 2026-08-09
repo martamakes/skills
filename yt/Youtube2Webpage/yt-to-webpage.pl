@@ -8,8 +8,11 @@ use IPC::Open2;
 
 sub timestamp_to_seconds {
     my ($ts) = @_;
-    if ($ts =~ /^(\d+):(\d+):(\d+)(?:\.\d+)?$/) {
-        return $1 * 3600 + $2 * 60 + $3;
+    # WebVTT timestamps are either HH:MM:SS.mmm (YouTube's own captions) or
+    # MM:SS.mmm (Whisper omits the hours component for content under 1h).
+    if ($ts =~ /^(?:(\d+):)?(\d+):(\d+)(?:\.\d+)?$/) {
+        my $h = defined $1 ? $1 : 0;
+        return $h * 3600 + $2 * 60 + $3;
     }
     die "Invalid timestamp format: $ts";
 }
@@ -32,7 +35,7 @@ sub parse_vtt {
         }
         next if $line =~ /^\s*$/;
         next if $line =~ /<\/c>$/;
-        if ($line =~ /(\d\d:\d\d:\d\d\.\d\d\d) --> (\d\d:\d\d:\d\d\.\d\d\d)/) {
+        if ($line =~ /((?:\d+:)?\d+:\d+\.\d+) --> ((?:\d+:)?\d+:\d+\.\d+)/) {
             $this_start = $1;
             next;
         }
