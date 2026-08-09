@@ -211,6 +211,15 @@ sub build_whisper_cmd {
     return ('whisper', $video_file, '--model', 'turbo', '--output_format', 'vtt');
 }
 
+sub build_ffmpeg_cmd {
+    my ($seconds, $video_file, $output_path) = @_;
+    return (
+        'ffmpeg', '-ss', $seconds, '-nostdin', '-i', $video_file,
+        '-frames:v', '1', '-q:v', '2', '-vf', 'scale=1024:-1',
+        $output_path,
+    );
+}
+
 sub run {
 }
 
