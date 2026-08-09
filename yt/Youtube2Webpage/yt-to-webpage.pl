@@ -4,6 +4,7 @@ use warnings;
 use strict;
 use autodie;
 use JSON::PP qw(decode_json);
+use IPC::Open2;
 
 sub timestamp_to_seconds {
     my ($ts) = @_;
@@ -218,6 +219,52 @@ sub build_ffmpeg_cmd {
         '-frames:v', '1', '-q:v', '2', '-vf', 'scale=1024:-1',
         $output_path,
     );
+}
+
+sub run_ytdlp {
+    no autodie qw(close);
+    my (@cmd) = @_;
+    open(my $ph, "-|", @cmd) or die "Failed to run yt-dlp: $!\n";
+    my $output = do { local $/; <$ph> };
+    close $ph;
+    my $exit = $? >> 8;
+    if ($exit != 0) {
+        die "yt-dlp exited with status $exit.\nOutput:\n$output\n";
+    }
+    return $output;
+}
+
+sub run_whisper {
+    my (@cmd) = @_;
+    system(@cmd);
+    my $exit = $? >> 8;
+    if ($exit != 0) {
+        die "whisper exited with status $exit while transcribing audio.\n";
+    }
+    return 1;
+}
+
+sub run_ffmpeg_capture {
+    my (@cmd) = @_;
+    system(@cmd);
+    my $exit = $? >> 8;
+    return $exit == 0;
+}
+
+sub invoke_claude_cli {
+    my ($prompt) = @_;
+    my ($reader, $writer);
+    my $pid = open2($reader, $writer, 'claude', '-p', '--output-format', 'json');
+    print $writer $prompt;
+    close $writer;
+    my $output = do { local $/; <$reader> };
+    close $reader;
+    waitpid($pid, 0);
+    my $exit = $? >> 8;
+    if ($exit != 0) {
+        die "claude CLI exited with status $exit.\nOutput:\n$output\n";
+    }
+    return $output;
 }
 
 sub run {
