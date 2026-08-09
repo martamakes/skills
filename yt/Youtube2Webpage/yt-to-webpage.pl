@@ -42,6 +42,25 @@ sub parse_vtt {
     return @moments;
 }
 
+sub build_transcript_text {
+    my ($moments) = @_;
+    my $text = '';
+    foreach my $m (@$moments) {
+        my $seconds = timestamp_to_seconds($m->{timestamp});
+        $text .= "[$seconds] $m->{text}\n";
+    }
+    return $text;
+}
+
+sub check_transcript_size {
+    my ($text) = @_;
+    my $len = length($text);
+    if ($len > 500_000) {
+        die "Transcript too large to analyze in a single call ($len characters, limit 500000). Chunking is not implemented yet.\n";
+    }
+    return 1;
+}
+
 sub run {
 }
 
