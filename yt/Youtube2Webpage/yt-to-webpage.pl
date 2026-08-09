@@ -3,6 +3,7 @@
 use warnings;
 use strict;
 use autodie;
+use JSON::PP qw(decode_json);
 
 sub timestamp_to_seconds {
     my ($ts) = @_;
@@ -59,6 +60,54 @@ sub check_transcript_size {
         die "Transcript too large to analyze in a single call ($len characters, limit 500000). Chunking is not implemented yet.\n";
     }
     return 1;
+}
+
+sub build_claude_prompt {
+    my ($transcript_text) = @_;
+    return <<"PROMPT";
+You are analyzing a video transcript. Each line is formatted as "[seconds] text",
+where "seconds" is the timestamp in the video where that line starts.
+
+Identify the KEY MOMENTS in this transcript: points where the speaker moves to a
+new sub-topic or starts a new piece of content (a new concept, a new demo, a new
+example). Do NOT select standalone quotes or remarks within the same topic block.
+
+Respond with ONLY a JSON array of integers - the "seconds" value of each key
+moment, in ascending order. No explanation, no markdown, no extra text.
+
+Example response: [125, 340, 812, 1290]
+
+Transcript:
+$transcript_text
+PROMPT
+}
+
+sub parse_claude_response {
+    my ($raw_output) = @_;
+    my $outer;
+    eval { $outer = decode_json($raw_output); };
+    die "Claude CLI did not return valid JSON wrapper: $@\nRaw output:\n$raw_output\n" if $@;
+
+    my $result_text = $outer->{result};
+    die "Claude CLI response has no 'result' field.\nRaw output:\n$raw_output\n"
+        unless defined $result_text;
+
+    unless ($result_text =~ /(\[.*\])/s) {
+        die "Could not find a JSON array in Claude's response.\nResponse text:\n$result_text\n";
+    }
+    my $array_text = $1;
+
+    my $timestamps;
+    eval { $timestamps = decode_json($array_text); };
+    die "Claude's JSON array did not parse: $@\nArray text:\n$array_text\n" if $@;
+
+    die "Claude returned zero key moments.\n" unless @$timestamps;
+
+    for my $t (@$timestamps) {
+        die "Claude returned a non-numeric timestamp: '$t'\n" unless $t =~ /^\d+(?:\.\d+)?$/;
+    }
+
+    return @$timestamps;
 }
 
 sub run {
