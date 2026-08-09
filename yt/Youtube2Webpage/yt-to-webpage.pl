@@ -268,6 +268,67 @@ sub invoke_claude_cli {
 }
 
 sub run {
+    my $slug = shift @ARGV;
+    my $url = shift @ARGV;
+
+    if (!$url || $url !~ m|^https://www\.youtube\.com|) {
+        print STDERR "Usage:\n";
+        print STDERR "$0 project-name \"https://www.youtube.com/watch?v=jNQXAC9IVRw\"\n";
+        exit 1;
+    }
+
+    mkdir($slug) unless -d $slug;
+    chdir($slug);
+
+    my $lang = prompt_subtitle_language();
+
+    my @ytdlp_cmd = build_ytdlp_cmd($url, $lang);
+    my $ytdlp_output = run_ytdlp(@ytdlp_cmd);
+    (my $video_file = $ytdlp_output) =~ s/\s+\z//;
+
+    unless (has_vtt_files('.')) {
+        print STDERR "No subtitles found for this video. Falling back to local Whisper transcription...\n";
+        my @whisper_cmd = build_whisper_cmd($video_file);
+        run_whisper(@whisper_cmd);
+        unless (has_vtt_files('.')) {
+            die "Whisper did not produce a .vtt file. Aborting.\n";
+        }
+    }
+
+    my ($vtt_path) = glob('*.vtt');
+    die "No .vtt file available after download/transcription.\n" unless $vtt_path;
+
+    my @moments = parse_vtt($vtt_path);
+    die "Transcript is empty after parsing $vtt_path.\n" unless @moments;
+
+    my $transcript_text = build_transcript_text(\@moments);
+    check_transcript_size($transcript_text);
+
+    my $prompt = build_claude_prompt($transcript_text);
+    my $claude_output = invoke_claude_cli($prompt);
+    my @selected_timestamps = parse_claude_response($claude_output);
+
+    my @selected_moments = select_moment_texts(\@moments, \@selected_timestamps);
+
+    mkdir('images') unless -d 'images';
+    foreach my $m (@selected_moments) {
+        my $ts_filename = seconds_to_filename($m->{timestamp_seconds});
+        my $image_path = "images/$ts_filename.jpg";
+        my @ffmpeg_cmd = build_ffmpeg_cmd($m->{timestamp_seconds}, $video_file, $image_path);
+        my $ok = run_ffmpeg_capture(@ffmpeg_cmd);
+        unless ($ok) {
+            print STDERR "Warning: failed to capture screenshot at $m->{timestamp_seconds}s, skipping.\n";
+        }
+    }
+
+    system('cp', '../styles.css', '.') if -f '../styles.css';
+
+    my $html = generate_html(\@selected_moments, $url);
+    open(my $out, '>', 'index.html');
+    print $out $html;
+    close $out;
+
+    print "Done. Open index.html in $slug/ to view the result.\n";
 }
 
 run() unless caller();
