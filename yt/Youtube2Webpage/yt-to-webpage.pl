@@ -110,6 +110,26 @@ sub parse_claude_response {
     return @$timestamps;
 }
 
+sub select_moment_texts {
+    my ($all_moments, $selected_timestamps) = @_;
+    my @selected;
+    foreach my $target (@$selected_timestamps) {
+        my $best;
+        my $best_diff;
+        foreach my $m (@$all_moments) {
+            my $seconds = timestamp_to_seconds($m->{timestamp});
+            my $diff = abs($seconds - $target);
+            if (!defined $best_diff || $diff < $best_diff) {
+                $best_diff = $diff;
+                $best = { timestamp_seconds => $seconds, text => $m->{text} };
+            }
+        }
+        push @selected, $best if $best;
+    }
+    @selected = sort { $a->{timestamp_seconds} <=> $b->{timestamp_seconds} } @selected;
+    return @selected;
+}
+
 sub run {
 }
 
