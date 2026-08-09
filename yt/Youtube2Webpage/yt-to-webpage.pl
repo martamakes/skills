@@ -198,6 +198,19 @@ sub build_ytdlp_cmd {
     );
 }
 
+sub has_vtt_files {
+    my ($dir) = @_;
+    opendir(my $dh, $dir);
+    my @vtts = grep { /\.vtt$/ } readdir($dh);
+    closedir $dh;
+    return scalar(@vtts) > 0;
+}
+
+sub build_whisper_cmd {
+    my ($video_file) = @_;
+    return ('whisper', $video_file, '--model', 'turbo', '--output_format', 'vtt');
+}
+
 sub run {
 }
 
