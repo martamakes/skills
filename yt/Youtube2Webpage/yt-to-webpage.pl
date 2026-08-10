@@ -6,6 +6,7 @@ use autodie;
 use JSON::PP qw(decode_json);
 use IPC::Open2;
 use Cwd;
+use File::Basename qw(basename);
 
 sub timestamp_to_seconds {
     my ($ts) = @_;
@@ -295,22 +296,39 @@ sub invoke_claude_cli {
 
 sub run {
     my $slug = shift @ARGV;
-    my $url = shift @ARGV;
+    my $arg = shift @ARGV;
 
-    if (!$url || $url !~ m|^https://www\.youtube\.com|) {
+    my $source = classify_video_source($arg);
+
+    if (!$source) {
         print STDERR "Usage:\n";
         print STDERR "$0 project-name \"https://www.youtube.com/watch?v=jNQXAC9IVRw\"\n";
+        print STDERR "$0 project-name /path/to/local-video.mp4\n";
+        exit 1;
+    }
+
+    if ($source->{type} eq 'invalid_extension') {
+        print STDERR "$source->{path} exists but doesn't look like a video file ";
+        print STDERR "(recognized: .mov, .mp4, .mkv, .webm, .avi, .m4v)\n";
         exit 1;
     }
 
     mkdir($slug) unless -d $slug;
     chdir($slug);
 
-    my $lang = prompt_subtitle_language();
+    my $video_file;
+    my $source_view;
 
-    my @ytdlp_cmd = build_ytdlp_cmd($url, $lang);
-    my $ytdlp_output = run_ytdlp(@ytdlp_cmd);
-    (my $video_file = $ytdlp_output) =~ s/\s+\z//;
+    if ($source->{type} eq 'youtube') {
+        my $lang = prompt_subtitle_language();
+        my @ytdlp_cmd = build_ytdlp_cmd($source->{url}, $lang);
+        my $ytdlp_output = run_ytdlp(@ytdlp_cmd);
+        ($video_file = $ytdlp_output) =~ s/\s+\z//;
+        $source_view = { label => $source->{url}, link => $source->{url} };
+    } else {
+        $video_file = $source->{path};
+        $source_view = { label => basename($source->{path}), link => undef };
+    }
 
     unless (has_vtt_files('.')) {
         print STDERR "No subtitles found for this video. Falling back to local Whisper transcription...\n";
@@ -349,7 +367,7 @@ sub run {
 
     system('cp', '../styles.css', '.') if -f '../styles.css';
 
-    my $html = generate_html(\@selected_moments, $url);
+    my $html = generate_html(\@selected_moments, $source_view);
     open(my $out, '>', 'index.html');
     print $out $html;
     close $out;
