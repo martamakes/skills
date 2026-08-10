@@ -167,7 +167,11 @@ sub escape_html {
 }
 
 sub generate_html {
-    my ($selected, $url) = @_;
+    my ($selected, $source_view) = @_;
+    my $source_html = defined $source_view->{link}
+        ? qq{<a href="$source_view->{link}" target="_blank">$source_view->{label}</a>}
+        : escape_html($source_view->{label});
+
     my $html = <<"HEADER";
 <html>
 <head>
@@ -175,8 +179,8 @@ sub generate_html {
 </head>
 <body>
 
-<h1>Youtube transcript</h1>
-Source: <a href="$url" target="_blank">$url</a>
+<h1>Video transcript</h1>
+Source: $source_html
 
 <ul>
 HEADER
@@ -184,9 +188,12 @@ HEADER
         my $seconds = $m->{timestamp_seconds};
         my $ts_filename = seconds_to_filename($seconds);
         my $escaped_text = escape_html($m->{text});
+        my $videolink = defined $source_view->{link}
+            ? qq{<a href="$source_view->{link}&t=${seconds}" target="blank" class="videolink">#</a>}
+            : '';
         $html .= qq{<li>
 	<div class="grab"><img src="images/$ts_filename.jpg" /></div><div class="subtitle"><span id="$seconds">$escaped_text</span>
-<a href="${url}&t=${seconds}" target="blank" class="videolink">#</a>
+$videolink
 	</div></li>\n};
     }
     $html .= "\n</ul>\n</body>\n</html>";
