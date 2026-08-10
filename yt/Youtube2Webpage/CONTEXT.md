@@ -1,7 +1,8 @@
 # Youtube2Webpage
 
 Genera una página web navegable (transcripción + capturas) a partir de un vídeo de
-YouTube, usando un LLM para decidir qué momentos del discurso merecen una captura.
+YouTube o de un vídeo local, usando un LLM para decidir qué momentos del discurso
+merecen una captura.
 
 ## Language
 
@@ -23,11 +24,29 @@ El idioma que el usuario pide de forma interactiva al arrancar el script, usado
 solo para elegir qué pista de subtítulos descargar cuando el vídeo tiene varias
 disponibles (p.ej. `.en.vtt` y `.es.vtt`). No implica traducción — si no hay
 pista en ese idioma, se usa la que haya, o se cae al fallback de Whisper si no
-hay ninguna.
+hay ninguna. Solo aplica cuando la **Fuente de vídeo** es una URL de YouTube —
+un **Vídeo local** no tiene pistas de subtítulos que elegir, así que la pregunta
+no se hace y siempre se transcribe con Whisper.
 _Avoid_: idioma destino, idioma de salida, idioma de traducción
+
+**Fuente de vídeo**:
+De dónde viene el vídeo a procesar: una URL de YouTube o un **Vídeo local**.
+Determina cómo se obtienen el vídeo y los subtítulos, pero no afecta al resto
+del pipeline (selección de momentos clave, capturas).
+_Avoid_: origen, input
+
+**Vídeo local**:
+Un fichero de vídeo ya existente en disco, nunca subido a YouTube (p.ej. un
+documental propio). Se referencia por su ruta absoluta sin copiarlo al
+directorio del proyecto. Al no tener subtítulos de YouTube que descargar,
+siempre se transcribe con Whisper. La página generada muestra su nombre de
+fichero como texto plano (sin enlace de reproducción, a diferencia de una
+**Fuente de vídeo** de YouTube).
+_Avoid_: vídeo propio, fichero de vídeo
 
 ## Relationships
 
+- Un **Vídeo** tiene exactamente una **Fuente de vídeo** (URL de YouTube o **Vídeo local**)
 - Un **Vídeo** se descompone en una secuencia de **Momentos clave**
 - Cada **Momento clave** tiene exactamente una **Captura** (imagen) asociada
 - El LLM solo señala el **timestamp** de cada **Momento clave**; el texto mostrado

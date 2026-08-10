@@ -45,19 +45,59 @@ New pure, testable function:
 sub classify_video_source {
     my ($arg) = @_;
     return undef unless defined $arg && length $arg;
-    if ($arg =~ m|^https://www\.youtube\.com|) {
+    if ($arg =~ m|^https://(?:(?:www\.|m\.)?youtube\.com|youtu\.be)/|) {
         return { type => 'youtube', url => $arg };
     }
     if (-f $arg) {
-        return { type => 'local', path => $arg };
+        if ($arg =~ /\.(mov|mp4|mkv|webm|avi|m4v)$/i) {
+            return { type => 'local', path => Cwd::abs_path($arg) };
+        }
+        return { type => 'invalid_extension', path => $arg };
     }
     return undef;
 }
 ```
 
-Replaces the current inline regex check in `run()`. `run()` calls this once,
-and exits with the existing two-line usage message (now showing both forms)
-when it returns `undef`.
+The `invalid_extension` case (file exists, but its extension isn't a
+recognized video format) is distinguished from the generic `undef` case
+(argument matches neither a YouTube URL nor an existing file) so `run()`
+can give a specific, helpful error — "this exists but doesn't look like a
+video file" is a different mistake than "this isn't a URL or a path at
+all", and conflating them into one generic usage message would leave the
+user guessing which one they hit.
+
+Widens YouTube-URL recognition beyond the current exact
+`^https://www\.youtube\.com` match: `youtube.com` with or without `www.`,
+`m.youtube.com`, and the `youtu.be` short-link domain. This was a
+pre-existing gap unrelated to local-video support, but since this function
+replaces the only place that check lives, it's fixed in the same change
+rather than left inconsistent. `http://` (non-TLS) links are intentionally
+still not recognized — not worth the YAGNI cost for links this old.
+
+Replaces the current inline check in `run()`, at the same point in
+`run()` — i.e. **before** `mkdir($slug)`/`chdir($slug)`. This matters: the
+CLI argument may be a relative path (`./doc.mov`), which only resolves
+correctly relative to the original working directory. `classify_video_source`
+resolves it to an absolute path with `Cwd::abs_path` immediately, so the
+`local` hash always carries an absolute path — safe to use after the
+subsequent `chdir` into the project directory regardless of how the user
+wrote it on the CLI.
+
+`run()` calls this once:
+- `undef` → existing two-line usage message (now showing both forms),
+  `exit 1`.
+- `{ type => 'invalid_extension', ... }` → specific message, e.g. `"$arg
+  exists but doesn't look like a video file (recognized: .mov, .mp4,
+  .mkv, .webm, .avi, .m4v)\n"`, `exit 1`.
+- `{ type => 'youtube' | 'local', ... }` → proceeds as below.
+
+Usage message (both lines shown together on any `undef` failure):
+
+```
+Usage:
+  yt-to-webpage.pl project-name "https://www.youtube.com/watch?v=jNQXAC9IVRw"
+  yt-to-webpage.pl project-name /path/to/local-video.mp4
+```
 
 ### 2. Video/subtitle acquisition (in `run()`)
 
@@ -99,8 +139,14 @@ bare URL string to a hash:
 ### 4. Testing
 
 - New `t/classify_video_source.t` (Test::More, no real external tools):
-  YouTube URL → `youtube` hash; existing local file (temp fixture) →
-  `local` hash; non-existent path → `undef`; empty/undef arg → `undef`.
+  YouTube URL in each recognized form (`www.youtube.com`, bare
+  `youtube.com`, `m.youtube.com`, `youtu.be`) → `youtube` hash with
+  absolute-path-irrelevant `url`; existing local video file (temp fixture,
+  recognized extension) → `local` hash with an absolute `path` (assert via
+  `Cwd::abs_path` on the fixture, not a hardcoded string, so the test isn't
+  tied to the tmpdir layout); existing local file with an unrecognized
+  extension (e.g. `.txt` fixture) → `invalid_extension` hash; non-existent
+  path → `undef`; empty/undef arg → `undef`.
 - Update `t/html_generation.t` for the new `$source_view` hash shape: one
   case with `link` defined (existing YouTube behavior), one with
   `link => undef` (local — asserts plain text source and absence of the
@@ -110,13 +156,22 @@ bare URL string to a hash:
 
 ### 5. Documentation
 
+- `README.md` opening paragraph: reword "...create a webpage from a Youtube
+  video..." to acknowledge the local-file mode too, without renaming the
+  project/repo (out of scope — bigger change touching `example/`, links,
+  script name).
 - `README.md` "Using" section: add the local-file invocation form next to
   the YouTube URL form, and a line noting local videos always use the
   Whisper fallback (no subtitle-file support yet).
-- `CONTEXT.md`: add **Vídeo local** as a second recognized source type,
-  alongside the existing YouTube-URL-based flow, noting it renders without
-  a playback link (filename only).
+- `CONTEXT.md`: **done** (during spec grilling, 2026-08-10) — added
+  **Fuente de vídeo** and **Vídeo local** terms, linked into
+  `## Relationships`, and narrowed **Idioma de subtítulos preferido** to
+  note it only applies when the source is a YouTube URL.
 
 ## Open questions
 
-None — all resolved during brainstorming (2026-08-10).
+None — all resolved during brainstorming (2026-08-10) and spec grilling
+(2026-08-10): absolute-path normalization before `chdir`, widened YouTube
+URL recognition, extension validation with a distinct `invalid_extension`
+outcome, the two-line usage message, and the README/CONTEXT.md wording
+gaps this created.
