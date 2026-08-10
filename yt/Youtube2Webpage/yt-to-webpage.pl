@@ -5,6 +5,7 @@ use strict;
 use autodie;
 use JSON::PP qw(decode_json);
 use IPC::Open2;
+use Cwd;
 
 sub timestamp_to_seconds {
     my ($ts) = @_;
@@ -15,6 +16,21 @@ sub timestamp_to_seconds {
         return $h * 3600 + $2 * 60 + $3;
     }
     die "Invalid timestamp format: $ts";
+}
+
+sub classify_video_source {
+    my ($arg) = @_;
+    return undef unless defined $arg && length $arg;
+    if ($arg =~ /^https:\/\/(?:(?:www\.|m\.)?youtube\.com|youtu\.be)\//) {
+        return { type => 'youtube', url => $arg };
+    }
+    if (-f $arg) {
+        if ($arg =~ /\.(mov|mp4|mkv|webm|avi|m4v)$/i) {
+            return { type => 'local', path => Cwd::abs_path($arg) };
+        }
+        return { type => 'invalid_extension', path => $arg };
+    }
+    return undef;
 }
 
 sub parse_vtt {
