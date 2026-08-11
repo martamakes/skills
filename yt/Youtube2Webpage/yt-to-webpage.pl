@@ -190,7 +190,10 @@ HEADER
         my $ts_filename = seconds_to_filename($seconds);
         my $escaped_text = escape_html($m->{text});
         my $videolink = defined $source_view->{link}
-            ? qq{<a href="$source_view->{link}&t=${seconds}" target="blank" class="videolink">#</a>}
+            ? do {
+                my $sep = $source_view->{link} =~ /\?/ ? '&' : '?';
+                qq{<a href="$source_view->{link}${sep}t=${seconds}" target="_blank" class="videolink">#</a>};
+              }
             : '';
         $html .= qq{<li>
 	<div class="grab"><img src="images/$ts_filename.jpg" /></div><div class="subtitle"><span id="$seconds">$escaped_text</span>

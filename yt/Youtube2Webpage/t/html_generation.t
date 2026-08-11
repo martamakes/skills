@@ -28,6 +28,15 @@ like($youtube_html, qr{images/00-01-05\.jpg}, "references the correctly-named sc
 like($youtube_html, qr{Topic &lt;A&gt; &amp; stuff}, "transcript text is escaped in the output");
 like($youtube_html, qr{href="https://www\.youtube\.com/watch\?v=abc123&t=65"}, "deep link includes seconds");
 
+# --- youtu.be source: link has no existing query string ---
+my $youtube_short_html = generate_html(\@selected,
+    { label => "https://youtu.be/abc123", link => "https://youtu.be/abc123" });
+
+like($youtube_short_html, qr{href="https://youtu\.be/abc123\?t=65"},
+    "deep link uses ? separator when link has no existing query string");
+unlike($youtube_short_html, qr{href="https://youtu\.be/abc123&t=65"},
+    "deep link does not use & separator when link has no existing query string");
+
 # --- local source: no link, filename shown as plain text ---
 my $local_html = generate_html(\@selected,
     { label => "My Documentary.mov", link => undef });
