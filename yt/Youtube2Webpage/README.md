@@ -1,6 +1,6 @@
 # Youtube-to-Webpage
 
-Youtube-to-Webpage is a Perl script to create a webpage from a Youtube video with a transcript generated from the video's closed captions (or a local Whisper transcription, if none are available), paired with one screenshot per **key moment** — a topic change or new piece of content, picked by Claude — instead of one screenshot per subtitle line.
+Youtube-to-Webpage is a Perl script to create a webpage from a Youtube video, or a local video file, with a transcript generated from the video's closed captions (or a local Whisper transcription, if none are available — always the case for local video files), paired with one screenshot per **key moment** — a topic change or new piece of content, picked by Claude — instead of one screenshot per subtitle line.
 
 ```./yt-to-webpage.pl project-name "videoURL"```
 
@@ -16,15 +16,18 @@ The project is built upon:
 
 ## Using
 
-To use, run the Perl script with a name for the folder to create, and the video URL. For example:
+To use, run the Perl script with a name for the folder to create, and either a YouTube video URL or the path to a local video file. For example:
 
 ```./yt-to-webpage.pl project-name "https://www.youtube.com/watch?v=jNQXAC9IVRw"```
+```./yt-to-webpage.pl project-name /path/to/local-video.mp4```
 
-The script will interactively ask for a **preferred subtitle language** (e.g. `en`, `es`). This only controls which subtitle track yt-dlp downloads when a video has more than one — it does not translate anything; whatever language the transcript is in is the language the generated page will show it in.
+Recognized local video extensions: `.mov`, `.mp4`, `.mkv`, `.webm`, `.avi`, `.m4v`. The local file is read in place — it is never copied into the project directory.
 
-If the video has no subtitles at all (neither manual nor auto-generated), the script automatically falls back to transcribing the audio locally with Whisper (`turbo` model, auto-detected language) instead of failing.
+For a YouTube URL, the script will interactively ask for a **preferred subtitle language** (e.g. `en`, `es`). This only controls which subtitle track yt-dlp downloads when a video has more than one — it does not translate anything; whatever language the transcript is in is the language the generated page will show it in. For a local video file, this question is never asked — there is no YouTube subtitle track to choose, so the script always transcribes locally with Whisper instead.
 
-Video quality is capped at 720p — plenty for legible screenshots while keeping downloads reasonably fast.
+If a YouTube video has no subtitles at all (neither manual nor auto-generated), the script automatically falls back to transcribing the audio locally with Whisper (`turbo` model, auto-detected language) instead of failing — the same fallback local video files always use.
+
+Video quality is capped at 720p for YouTube downloads — plenty for legible screenshots while keeping downloads reasonably fast. Local video files are used at their original resolution.
 
 ## Testing
 
